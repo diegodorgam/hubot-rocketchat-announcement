@@ -1,7 +1,7 @@
 {
-  "name": "hubot-rocketchat-announcement",
-  "description": "A hubot script to make DM announcements to Rocket.Chat users.",
-  "version": "0.1.0",
+  "name": "hubot-rocketchat-notify",
+  "description": "A hubot script to make DM notices to Rocket.Chat users.",
+  "version": "0.0.1",
   "author": "Tim Kinnane <tim@nestedcode.com>",
   "license": "MIT",
   "keywords": [
@@ -12,14 +12,21 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/timkinnane/hubot-rocketchat-announcement.git"
+    "url": "https://github.com/diegodorgam/hubot-rocketchat-announcement.git"
   },
   "bugs": {
-    "url": "https://github.com/timkinnane/hubot-rocketchat-announcement/issues"
+    "url": "https://github.com/diegodorgam/hubot-rocketchat-announcement/issues"
   },
   "dependencies": {
     "coffee-script": "^1.10.0",
+    "hubot": "^2.19.0",
     "hubot-conversation": "^1.1.1",
+    "hubot-diagnostics": "0.0.2",
+    "hubot-help": "^0.2.2",
+    "hubot-redis-brain": "0.0.4",
+    "hubot-rocketchat": "^1.0.12",
+    "hubot-rules": "^0.1.2",
+    "hubot-scripts": "^2.17.2",
     "q": "^1.4.1",
     "underscore": "^1.8.3"
   },
