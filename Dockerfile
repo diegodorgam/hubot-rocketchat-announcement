@@ -20,6 +20,6 @@ RUN /usr/local/bin/yo hubot --adapter ${HUBOT_ADAPTER} --owner ${HUBOT_OWNER} --
 
 COPY ["external-scripts.json","package.json", "/home/hubot/bot/"]
 
-ADD scripts/ /home/hubot/bot/scripts/
+ADD src/ /home/hubot/bot/scripts/
 
 ENTRYPOINT /home/hubot/bot/bin/hubot -a rocketchat
