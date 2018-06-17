@@ -26,11 +26,18 @@
 module.exports = function (robot) {
 	var MONGODB_URL = process.env.MONGODB_URL || "mongodb://localhost:27017/hubot";
 	var _ = require('underscore');
-	// const Conversation = require('hubot-conversation');
-	// const Q = require('q');
+	const Conversation = require('hubot-conversation');
+	const Q = require('q');
 	var targets = {};
 	var help = {};
 	var usersAndRoles = {};
+
+	robot.brain.on('loaded', () => {
+		if (robot.brain.get('notifications') === null) {
+			return robot.brain.set('notifications', {});
+		}
+	});
+
 	function describe(command, description) {
 		help[command] = description;
 	}
@@ -152,25 +159,17 @@ module.exports = function (robot) {
 		return msg;
 	}
 	const sendNotification = async function (msg,users){
-
 		_.each(users, async function (username) {
 			try{
+				// TODO: Check if username is not the sender
 				// get room id
 				rid = await robot.adapter.driver.getDirectMessageRoomId(username.trim().substring(1));
-				console.log(">>>>>THIS IS RID" + JSON.stringify(rid));
-				console.log(`Username ${username} has roomID ${rid}`);
-
 				receipt = await robot.adapter.driver.sendToRoomId(msg, rid);
-				if(receipt){
-					console.log(`\n\n>>> SENDING MESSAGE ${username} = ${rid} success`);
-				}else{
-					console.error(`CAN'T SEND message to ${username} at rid ${rid}`);
-				}
-				//console.log(robot.adapter);
+				//add Q
 			}catch (e) {
 				return robot.logger.error(`Error sending direct message to ${username}: ${ e }`);
 			} finally {
-				return true;
+				return receipt;
 			}
 		});
 	}
@@ -189,26 +188,9 @@ module.exports = function (robot) {
 				return context.response.reply(getSetTargetMessage());
 			}
 		}
-		// set GITLAB_TOKEN and GITLAB_URL
-		// if (!context.response.params.gitlab_token) {
-		// 	context.response.params.gitlab_token = robot.brain.get('gitlab_token_by_room_' + context.response.envelope.room);
-		//   context.response.params.gitlab_url = robot.brain.get('gitlab_url_by_room_' + context.response.envelope.room);
-		// 	if (!context.response.params.gitlab_url) {
-		// 		robot.brain.set('gitlab_url_by_room_'+context.response.envelope.room, GITLAB_URL);
-		// 	}
-		// 	if (!context.response.params.gitlab_token && !GITLAB_TOKEN) {
-		// 		return context.response.reply(getGitlabToken());
-		// 	}else if (!context.response.params.gitlab_token && GITLAB_TOKEN !== false){
-		// 		robot.brain.set('gitlab_token_by_room_'+context.response.envelope.room, GITLAB_TOKEN);
-		// 	}
-		// }
-		// gitlab[context.response.envelope.room] = require('gitlab')({
-		// 	url: robot.brain.get('gitlab_url_by_room_'+context.response.envelope.room),
-		// 	token: robot.brain.get('gitlab_token_by_room_'+context.response.envelope.room)
-		// });
 		// check security clearance
-		robot.logger.debug("MID rc_role=" + context.response.params.rc_role);
-		robot.logger.debug("MID user.name=" + context.response.message.user.name);
+		// robot.logger.debug("MID rc_role=" + context.response.params.rc_role);
+		// robot.logger.debug("MID user.name=" + context.response.message.user.name);
 		if (robot.brain.get('security_role_by_room_' + context.response.envelope.room) !== null) {
 			if (checkRole(robot.brain.get('security_role_by_room_' + context.response.envelope.room), context.response.message.user.name) || checkRole('admin', context.response.message.user.name)) {
 				robot.logger.debug("ACCESS GRANTED in middlewareListener");
@@ -220,9 +202,11 @@ module.exports = function (robot) {
 		}
 		next();
 	});
+
 	///////////////
 	// LISTENERS //
 	///////////////
+
 	// Security
 	robot.respond(/auth(?:orize)? (.+)/i, { params: 'rc_role' }, function (res) {
 		robot.logger.debug("CB rc_role=" + res.params.rc_role);
@@ -280,13 +264,15 @@ module.exports = function (robot) {
 
 	robot.respond(/u(?:ser)? add (.+)/i, { params: 'username', targetRequired: true }, function (res) {
 		//TODO: Checks if username exists
+		//TODO: Checks if username is the sender (maybe check this on sendNotification)
 		var target_name = robot.brain.get('default_target_by_room_' + res.envelope.room);
 		var targets = robot.brain.get('targets_by_room_' + res.envelope.room);
-		if(targets[target_name].push(res.params.username)){
+		if(targets[target_name].push(res.params.username.trim())){
 			robot.brain.set('targets_by_room_' + res.envelope.room, targets);
 			return res.reply(`User ${res.params.username} was added to ${target_name}!`);
 		}
 	});
+
 	// User list
 	robot.respond(/u(?:ser)? list/i, { targetRequired: true }, function (res) {
 		defaultTarget = robot.brain.get('default_target_by_room_'+res.envelope.room);
@@ -300,17 +286,30 @@ module.exports = function (robot) {
 		}
 	});
 
-	// User list
-	robot.respond(/s(?:end)? (.+)/i, { params: 'message', targetRequired: true }, function (res) {
+	// Send Notification
+	robot.respond(/s(?:end)?\s(.+)\s*\n?((?:.*\n?)*)/i, { params: 'title, message', targetRequired: true }, function (res) {
 		defaultTarget = robot.brain.get('default_target_by_room_'+res.envelope.room);
 		if(defaultTarget){
 			var targets = robot.brain.get('targets_by_room_' + res.envelope.room);
 			var records = targets[defaultTarget];
+			var records = records.filter(e => e.trim().substring(1) !== res.envelope.user.name);
 			if(res.params.message){
-				sendNotification(res.params.message,records);
-				return res.reply(`>your message:\n${res.params.message}\n>is being sended to:\n${records}`);
+				// save title and message to brain
+				notifications = robot.brain.get("notifications_by_room_" + res.envelope.room) || [];
+				notification = {
+					title: res.params.title,
+					message : res.params.message,
+					status: "sending",
+					rooms: [],
+					receipts: []
+				};
+				notifications.push(notification);
+				robot.brain.set("notifications_by_room_" + res.envelope.room, notifications);
+				//Send Message
+				console.log(">>sending>> " + sendNotification(res.params.message,records));
+				return res.reply(`Your message:\n${res.params.title}\nis being sended to:\n${records}`);
 			}
-			
+
 		} else {
 			return res.reply(getSetTargetMessage());
 		}
