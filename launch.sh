@@ -11,5 +11,6 @@ export ROCKETCHAT_USER=notify
 export ROCKETCHAT_PASSWORD='notifypass'
 export ROCKETCHAT_AUTH=password
 export HUBOT_LOG_LEVEL=debug
+export MONGODB_URL='mongodb://localhost:27017/hubot'
 
 bin/hubot -a rocketchat

@@ -1,40 +1,23 @@
-# hubot-rocketchat-announcement
+# hubot-rocketchat-notify
+
 [![NPM version][npm-image]][npm-url]
 
-Hubot script to send direct message announcements to Rocket.Chat users.
-
-See [`src/rocketchat-announcement.coffee`](src/rocketchat-announcement.coffee) for full documentation.
-
-## CAUTION
-
-This is a pre-release alpha version, not suitable for production environments.
-
-This package requires [rocketchat-bot-helpers](https://github.com/timkinnane/rocketchat-bot-helpers/) package added to
-Rocket.Chat. That is an experimental package, not published to Meteor and must be manually installed.
+Hubot script to segment user audience and send direct messages to Rocket.Chat users.
 
 ## Installation
 
 In hubot project repo, run:
 
-`npm install hubot-rocketchat-announcement --save`
+`npm install hubot-rocketchat-notify --save`
 
-Then add **hubot-rocketchat-announcement** to your `external-scripts.json`:
+Then add **hubot-rocketchat-notify** to your `external-scripts.json`:
 
 ```json
-["hubot-rocketchat-announcement"]
+["hubot-rocketchat-notify"]
 ```
 
 ## Configuration
 
-None at present.
-
-Feature roadmap will introduce ability to configure announcement levels and authentication.
-At present levels are `ALERT`, `NOTICE`, `UPDATE`, `SOCIAL`.
-
-Users will be able to reply to ignore future announcements per level, apart from ALERT.
-Authentication for senders of announcements will allow permissions based on level.
-
-e.g. Only admins can send ALERT, moderators can send NOTICE/UPDATE, users can send SOCIAL.
 
 ## Sample Interaction
 

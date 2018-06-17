@@ -2,6 +2,9 @@
 temp/
 coverage/
 compile/
+chat/
+legacy/
+.vscode/
 
 # Logs
 logs
