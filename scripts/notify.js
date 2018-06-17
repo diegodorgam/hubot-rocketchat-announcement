@@ -24,14 +24,13 @@
 //   hubot-iwelt-mongodb-brain hubot-conversation
 
 module.exports = function (robot) {
-	var MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/hubot";
+	var MONGODB_URL = process.env.MONGODB_URL || "mongodb://localhost:27017/hubot";
 	var _ = require('underscore');
+	// const Conversation = require('hubot-conversation');
+	// const Q = require('q');
 	var targets = {};
 	var help = {};
 	var usersAndRoles = {};
-	robot.brain.on('loaded', function () {
-		robot.logger.info("Brain is loaded");
-	});
 	function describe(command, description) {
 		help[command] = description;
 	}
@@ -97,6 +96,7 @@ module.exports = function (robot) {
 		}
 		return match.substring(nameLength).trim();
 	};
+
 	function limitResult(res, result) {
 		if (res.params.limit > 0) {
 			return result.slice(0, res.params.limit);
@@ -151,12 +151,21 @@ module.exports = function (robot) {
 			msg += `\n **No users found in this target**`;
 		return msg;
 	}
-	async function sendDMs(msg,users){
-		console.log(robot);
-		_.each(users, function (username) {
+	const sendNotification = async function (msg,users){
+
+		_.each(users, async function (username) {
 			try{
-				console.log("\n\n>>> SENDING MESSAGE " + username.substring(1));
-				robot.adapter.driver.sendDirectToUser(msg, username.substring(1));
+				// get room id
+				rid = await robot.adapter.driver.getDirectMessageRoomId(username.trim().substring(1));
+				console.log(">>>>>THIS IS RID" + JSON.stringify(rid));
+				console.log(`Username ${username} has roomID ${rid}`);
+
+				receipt = await robot.adapter.driver.sendToRoomId(msg, rid);
+				if(receipt){
+					console.log(`\n\n>>> SENDING MESSAGE ${username} = ${rid} success`);
+				}else{
+					console.error(`CAN'T SEND message to ${username} at rid ${rid}`);
+				}
 				//console.log(robot.adapter);
 			}catch (e) {
 				return robot.logger.error(`Error sending direct message to ${username}: ${ e }`);
@@ -298,7 +307,7 @@ module.exports = function (robot) {
 			var targets = robot.brain.get('targets_by_room_' + res.envelope.room);
 			var records = targets[defaultTarget];
 			if(res.params.message){
-				sendDMs(res.params.message,records);
+				sendNotification(res.params.message,records);
 				return res.reply(`>your message:\n${res.params.message}\n>is being sended to:\n${records}`);
 			}
 			
