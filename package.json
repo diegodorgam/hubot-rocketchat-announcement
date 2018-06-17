@@ -21,6 +21,7 @@
     "coffeescript": "^2.2.2",
     "generator-hubot": "^1.0.0",
     "hubot": "^3.0.1",
+    "hubot-conversation": "^1.1.1",
     "hubot-diagnostics": "0.0.2",
     "hubot-help": "^0.2.2",
     "hubot-iwelt-mongodb-brain": "^1.0.1",
