@@ -1,7 +1,7 @@
 {
   "name": "hubot-rocketchat-notify",
   "description": "A hubot script to make DM notices to Rocket.Chat users.",
-  "version": "0.0.2",
+  "version": "0.1.0-alpha",
   "author": "Diego Dorgam <diego.dorgam@rocket.chat>",
   "license": "MIT",
   "keywords": [
@@ -22,17 +22,14 @@
     "dateformat": "^3.0.3",
     "generator-hubot": "^1.0.0",
     "hubot": "^3.0.1",
-    "hubot-conversation": "^1.1.1",
     "hubot-diagnostics": "0.0.2",
     "hubot-help": "^0.2.2",
     "hubot-iwelt-mongodb-brain": "^1.0.1",
     "hubot-mongodb-brain": "0.1.1",
-    "hubot-redis-brain": "0.0.4",
     "hubot-rocketchat": "2.0.0-development",
     "mongodb": "^3.0.10",
     "mongodb-redact": "^0.1.0",
     "mongodb-url": "^3.0.1",
-    "q": "^1.4.1",
     "underscore": "^1.8.3",
     "yo": "^2.0.2"
   },
