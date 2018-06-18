@@ -4,38 +4,40 @@
 //   hubot authorize <user-role>
 //   hubot list - lists targets names
 //   hubot target create <target_name>
+//   hubot target delete <target_name>
+//   hubot target set <target_name>
 //   hubot user add <@username>
-//   hubot user remove <@username>
+//   hubot user delete <@username>
+//   hubot user list
+//   hubot send <title>\n (shift+enter)
+//	 <message>
+//   hubot report <notification_title>
+//   ------------------------------------------
+//	TODO:
 //   hubot target describe <target_name>
 //   hubot target duplicate <target_name> <target_new_name>
-//   hubot target delete <target_name>
-//   hubot set <target_name>
-//   hubot message \n <message>
-//   hubot send <message>
-//   hubot status <notify_id>
 //   hubot resend <all|unread|edit> <notify_id>
 //   hubot delete <notify_id>
-//   ------------------------------------------
 // Configuration:
 //   MONGODB_URL
-//   USERNAME
-//   PASSWORD
 // Dependencies:
-//   hubot-iwelt-mongodb-brain hubot-conversation
+//   hubot-iwelt-mongodb-brain
 
 module.exports = function (robot) {
 	var MONGODB_URL = process.env.MONGODB_URL || "mongodb://localhost:27017/hubot";
 	var _ = require('underscore');
-	const Conversation = require('hubot-conversation');
-	const Q = require('q');
-	var targets = {};
+	// const Conversation = require('hubot-conversation');
+	var dateFormat = require('dateformat');
+	// const Q = require('q');
+	// var targets = {};
 	var help = {};
 	var usersAndRoles = {};
 
 	robot.brain.on('loaded', () => {
-		if (robot.brain.get('notifications') === null) {
-			return robot.brain.set('notifications', {});
+		if (!robot.brain.get('notifications')){
+			return robot.brain.set('notifications', []);
 		}
+		robot.brain.setAutoSave(true);
 	});
 
 	function describe(command, description) {
@@ -150,28 +152,53 @@ module.exports = function (robot) {
 	function renderUsers(res, msg, records) {
 		var initialLength = msg.length;
 		var found = false;
-		_.forEach(records, function (item) {
-			console.log(item);
-			msg += `- ${item}\n`;
-		});
-		if (msg.length <= initialLength)
-			msg += `\n **No users found in this target**`;
-		return msg;
+		// console.log('\n\n\n>>> RENDER USER RECORDS');
+		// console.log(typeof(records));
+		console.log(records);
+		for(username in records){
+			found = true;
+			msg += `@${records[username]}, `;
+			console.log(msg);
+		};
+		if (!found) {
+			return msg = `**No users found in this target**`;
+		} else {
+			return msg.trim().substring(0, msg.length - 2);
+		}
 	}
-	const sendNotification = async function (msg,users){
-		_.each(users, async function (username) {
+	const sendNotification = async function (res, msg, users){
+		receipts = [];
+		rids = [];
+		await _.each(users, async function (username) {
 			try{
-				// TODO: Check if username is not the sender
 				// get room id
-				rid = await robot.adapter.driver.getDirectMessageRoomId(username.trim().substring(1));
+				rid = await robot.adapter.driver.getDirectMessageRoomId(username);
 				receipt = await robot.adapter.driver.sendToRoomId(msg, rid);
-				//add Q
+				receipt['to'] = username;
+				small_receipt = {
+					rid: receipt['rid'],
+					send_date: receipt['ts']['$date'],
+					_id: receipt['_id'],
+					to: receipt['to']
+				};
 			}catch (e) {
 				return robot.logger.error(`Error sending direct message to ${username}: ${ e }`);
 			} finally {
-				return receipt;
+				receipts.push(small_receipt);
 			}
 		});
+		notifications = robot.brain.get("notifications") || [];
+		notification = {
+			_id: res.message._id,
+			title: res.params.title,
+			message: res.params.message,
+			to: users,
+			rcpt: receipts
+		};
+		notifications.push(notification);
+		robot.brain.set("notifications", notifications);
+		return receipts;
+
 	}
 	// Set auth framework
 	robot.listenerMiddleware(function (context, next, done) {
@@ -183,14 +210,12 @@ module.exports = function (robot) {
 			extractParams(context.response, context.listener.options.params);
 		}
 		if (context.listener.options.requireTarget === true) {
-			if (!context.response.params.project) {
-				context.response.params.target = robot.brain.get('target_by_room_' + context.response.envelope.room);
-				return context.response.reply(getSetTargetMessage());
+			if (!context.response.params.target) {
+				context.response.params.target = robot.brain.get('default_target_by_room_' + context.response.envelope.room);
+				if (!context.response.params.target) return context.response.reply(getSetTargetMessage());
 			}
 		}
 		// check security clearance
-		// robot.logger.debug("MID rc_role=" + context.response.params.rc_role);
-		// robot.logger.debug("MID user.name=" + context.response.message.user.name);
 		if (robot.brain.get('security_role_by_room_' + context.response.envelope.room) !== null) {
 			if (checkRole(robot.brain.get('security_role_by_room_' + context.response.envelope.room), context.response.message.user.name) || checkRole('admin', context.response.message.user.name)) {
 				robot.logger.debug("ACCESS GRANTED in middlewareListener");
@@ -201,6 +226,26 @@ module.exports = function (robot) {
 			}
 		}
 		next();
+	});
+	robot.receiveMiddleware(function (context, next, done) {
+		// check for message reading receipt
+		//console.log('MID:: context.response.message: ' + JSON.stringify(context.response));
+		if (context.response.envelope.user.roomType == "d") {
+			console.log('>>>PRIVATE MESSAGE<<<');
+			// receiving a direct message check if needs reading receipt
+			notifications = robot.brain.get('notifications');
+			for (let i = 0; i < notifications.length; i++) {
+				if (notifications[i].to.indexOf(context.response.message.user.name)>-1) {
+					for (let j = 0; j < notifications[i].rcpt.length; j++) {
+						if (context.response.message.user.name == notifications[i].rcpt[j].to) {
+							if (!notifications[i].rcpt[j].received || notifications[i].rcpt[j].received === undefined) notifications[i].rcpt[j].received = Date.now();
+						}
+					}
+				}
+			}
+			robot.brain.set('notifications', notifications);
+		}
+		next()
 	});
 
 	///////////////
@@ -262,19 +307,47 @@ module.exports = function (robot) {
 		}
 	});
 
-	robot.respond(/u(?:ser)? add (.+)/i, { params: 'username', targetRequired: true }, function (res) {
+	// TARGET DELETE
+	robot.respond(/t(?:arget)? del(?:ete)? (.+)/i, { params: 'target' }, function (res) {
+		var targets = robot.brain.get('targets_by_room_' + res.envelope.room);
+		var records = targets.filter(e => e.trim() !== res.params.target);
+		if (robot.brain.set('targets_by_room_' + res.envelope.room, records)) {
+			return res.reply(`Target ${res.params.target} was deleted!`);
+		} else {
+			console.error('something bad happened, target couldn\'t be removed');
+		}
+	});
+
+	// USER ADD
+	robot.respond(/u(?:ser)? add (.+)/i, { params: 'username', requireTarget: true }, function (res) {
 		//TODO: Checks if username exists
 		//TODO: Checks if username is the sender (maybe check this on sendNotification)
 		var target_name = robot.brain.get('default_target_by_room_' + res.envelope.room);
 		var targets = robot.brain.get('targets_by_room_' + res.envelope.room);
-		if(targets[target_name].push(res.params.username.trim())){
+		new_user = res.params.username.trim();
+		if (new_user.indexOf('@') > -1){ new_user = new_user.substring('1');} 
+		if(targets[target_name].push(new_user)){
 			robot.brain.set('targets_by_room_' + res.envelope.room, targets);
 			return res.reply(`User ${res.params.username} was added to ${target_name}!`);
 		}
 	});
 
+	// User delete
+	robot.respond(/u(?:ser)? del(?:ete)? (.+)/i, { params: 'username', requireTarget: true }, function (res) {
+		var target_name = robot.brain.get('default_target_by_room_' + res.envelope.room);
+		var targets = robot.brain.get('targets_by_room_' + res.envelope.room);
+		var records = targets[target_name];
+		targets[target_name] = records.filter(e => e.trim() !== res.params.username);
+		 
+		if (robot.brain.set('targets_by_room_' + res.envelope.room, targets)) {	
+			return res.reply(`User ${res.params.username} was delete from ${target_name}!`);
+		} else {
+			console.error('something bad happened, user couldn\'t be removed');
+		}
+	});
+
 	// User list
-	robot.respond(/u(?:ser)? list/i, { targetRequired: true }, function (res) {
+	robot.respond(/u(?:ser)? list/i, { requireTarget: true }, function (res) {
 		defaultTarget = robot.brain.get('default_target_by_room_'+res.envelope.room);
 		if(defaultTarget){
 			var targets = robot.brain.get('targets_by_room_' + res.envelope.room);
@@ -284,30 +357,19 @@ module.exports = function (robot) {
 		} else {
 			return res.reply(getSetTargetMessage());
 		}
-	});
 
+	});
 	// Send Notification
-	robot.respond(/s(?:end)?\s(.+)\s*\n?((?:.*\n?)*)/i, { params: 'title, message', targetRequired: true }, function (res) {
+	robot.respond(/s(?:end)?\s(.+)\s*\n?((?:(.|\n)*\n?)*)/i, { params: 'title, message', requireTarget: true }, async function (res) {
 		defaultTarget = robot.brain.get('default_target_by_room_'+res.envelope.room);
 		if(defaultTarget){
 			var targets = robot.brain.get('targets_by_room_' + res.envelope.room);
 			var records = targets[defaultTarget];
-			var records = records.filter(e => e.trim().substring(1) !== res.envelope.user.name);
+			var records = records.filter(e => e.trim() != res.envelope.user.name);
 			if(res.params.message){
-				// save title and message to brain
-				notifications = robot.brain.get("notifications_by_room_" + res.envelope.room) || [];
-				notification = {
-					title: res.params.title,
-					message : res.params.message,
-					status: "sending",
-					rooms: [],
-					receipts: []
-				};
-				notifications.push(notification);
-				robot.brain.set("notifications_by_room_" + res.envelope.room, notifications);
-				//Send Message
-				console.log(">>sending>> " + sendNotification(res.params.message,records));
-				return res.reply(`Your message:\n${res.params.title}\nis being sended to:\n${records}`);
+				res.reply(`Your message:\n${res.params.title}\nis being sended to:\n${records}`);
+				returned_receipts = await sendNotification(res, res.params.message, records);
+				if (returned_receipts.length > 0) return res.reply(`Your message has been sended`);
 			}
 
 		} else {
@@ -315,118 +377,42 @@ module.exports = function (robot) {
 		}
 	});
 
-
-	// Milestone
-	robot.respond(/m(?:ilestone)? list\s?(all|opened|closed)*/i, { params: 'status', requireProject: true }, function (res) {
-		gitlab[res.envelope.room].projects.milestones.all(res.params.project, function (records) {
-			var msg = `Milestones from **Project #${res.params.project}**\n`;
-			res.reply(renderMilestones(res, msg, records));
-		});
-	});
-	// Builds
-	robot.respond(/b(?:uild)? list\s?(created|pending|running|failed|success|canceled|skipped)?/i, { params: 'scope', requireProject: true }, function (res) {
-		var params = {};
-		if (res.params.scope) {
-			params.scope = res.params.scope;
+	// Report Notification
+	robot.respond(/re(?:port)? (.+)/i, { params: 'title' }, function (res) {
+		//check if title was given 
+		notifications = robot.brain.get('notifications');
+		if (!res.params.title){
+			titles = notifications.filter(n => n.title.trim());
+			titles = title.join('\n>');
+			return res.reply('Please especify the title of the notification:\n'+titles);
+		} else {
+			notification = notifications.filter(n => n.title.trim() == res.params.title.trim());
+			let received = 0;
+			let total = notification[0].to.length;
+			let msg_seen = '';
+			let msg_not = '';
+			for(let i=0; i< notification[0].rcpt.length;i++){
+				if (notification[0].rcpt[i].received){
+					viz_date = new Date(notification[0].rcpt[i].received);
+					viz_date = dateFormat(viz_date, 'dd/mm/yyyy HH:MM:ss');
+					msg_seen += `+ @${notification[0].rcpt[i].to} (${viz_date})\n`;
+					received++;
+				}else{
+					msg_not += `- @${notification[0].rcpt[i].to}\n`;
+				}
+			}
+			msg = `Here is your report on \`${res.params.title}\`:\n`;
+			msg += `${received} reads from total ${total}\n`;
+			msg += msg_seen;
+			msg += '-----------------------\nUsers who did not responded:\n';
+			msg += msg_not;
+			return res.reply(msg);
 		}
-		gitlab[res.envelope.room].projects.builds.listBuilds(res.params.project, params, function (records) {
-			var msg = `Builds from **Project #${res.params.project}**\n`;
-			res.reply(renderBuilds(res, msg, records));
-		});
 	});
-	robot.respond(/b(?:uild)? play (\d+)/i, { params: 'build', requireProject: true }, function (res) {
-		gitlab[res.envelope.room].projects.builds.play(res.params.project, res.params.build, function (record) {
-			var msg = `Playing build ${res.params.build} in **Project #${res.params.project}**\n`;
-			if (record == true) {
-				return res.reply(msg + 'Build already executed or nonexistent');
-			}
-			res.reply(renderBuilds(res, msg, [record]));
-		});
-	});
-	robot.respond(/b(?:uild)? retry (\d+)/i, { params: 'build', requireProject: true }, function (res) {
-		gitlab[res.envelope.room].projects.builds.retry(res.params.project, res.params.build, function (record) {
-			var msg = `Retrying build ${res.params.build} in **Project #${res.params.project}**\n`;
-			res.reply(renderBuilds(res, msg, [record]));
-		});
-	});
-	robot.respond(/b(?:uild)? erase (\d+)/i, { params: 'build', requireProject: true }, function (res) {
-		gitlab[res.envelope.room].projects.builds.erase(res.params.project, res.params.build, function (record) {
-			var msg = `Erasing build ${res.params.build} in **Project #${res.params.project}**\n`;
-			if (record == true) {
-				return res.reply(msg + 'Build already erased or nonexistent');
-			}
-			res.reply(renderBuilds(res, msg, [record]));
-		});
-	});
-	// Issue
-	robot.respond(/i(?:ssue)? list\s?(all|opened|closed)*/i, { params: 'status', requireProject: true }, function (res) {
-		gitlab[res.envelope.room].projects.issues.list(res.params.project, function (records) {
-			var msg = `Issues from **Project #${res.params.project}**\n`;
-			res.reply(renderIssues(res, msg, records));
-		});
-	});
-	robot.respond(/i(?:ssue)? create\s(.+)\s*\n?((?:.*\n?)*)/i, { params: 'title, description', requireProject: true }, function (res) {
-		var data = {
-			title: res.params.title,
-			description: res.params.description
-		};
-		gitlab[res.envelope.room].issues.create(res.params.project, data, function (record) {
-			var msg = `Issue created in **Project #${res.params.project}**\n`;
-			res.reply(renderIssues(res, msg, [record]));
-		});
-	});
-	robot.respond(/i(?:ssue)? assign (\d+) (\w+)/i, { params: 'issue, username', requireProject: true }, function (res) {
-		gitlab[res.envelope.room].users.all(function (users) {
-			var user = _.findWhere(users, { username: res.params.username });
-			if (!user) {
-				return res.reply(`User with username \`${res.params.username}\` not found`);
-			}
-			var data = {
-				assignee_id: user.id
-			};
-			gitlab[res.envelope.room].issues.edit(res.params.project, res.params.issue, data, function (record) {
-				var msg = `Issue assigned to \`${user.username}\` in **Project #${res.params.project}**\n`;
-				res.reply(msg);
-			});
-		});
-	});
-	robot.respond(/i(?:ssue)? (close|reopen) (\d+)/i, { params: 'action, issue', requireProject: true }, function (res) {
-		var data = {
-			state_event: res.params.action
-		};
-		gitlab[res.envelope.room].issues.edit(res.params.project, res.params.issue, data, function (record) {
-			// robot.logger.debug(record);
-			if (record !== null) {
-				var msg = `Issue ${record.id} is now ${record.state} in **Project #${res.params.project}**\n`;
-				res.reply(renderIssues(res, msg, [record]));
-			}
-			else {
-				res.reply(`There was a problem editing issue #${res.params.issue}`);
-			}
-		});
-	});
-	robot.respond(/i(?:ssue)? (remove) (\d+)/i, { params: 'action, issue', requireProject: true }, function (res) {
-		gitlab[res.envelope.room].issues.remove(res.params.project, res.params.issue, function (record) {
-			if (record === true) {
-				res.reply(`Issue ${res.params.issue} was removed in **Project #${res.params.project}**`);
-			}
-			else {
-				res.reply(`There was a problem removing issue ${res.params.issue} in **Project #${res.params.project}**`);
-			}
-		});
-	});
-	// Pipeline
-	robot.respond(/pi(?:peline)? list/i, { requireProject: true }, function (res) {
-		gitlab[res.envelope.room].pipelines.all(res.params.project, function (records) {
-			var msg = `Pipeline list in **Project #${res.params.project}**\n`;
-			res.reply(renderPipelines(res, msg, records));
-		});
-	});
-	// Deployments
-	robot.respond(/d(?:eployment)? list/i, { requireProject: true }, function (res) {
-		gitlab[res.envelope.room].deployments.all(res.params.project, function (records) {
-			var msg = `Pipeline list in **Project #${res.params.project}**\n`;
-			res.reply(renderPipelines(res, msg, records));
-		});
-	});
+
+	// // Catch ALL
+	// robot.catchAll(function (res) {
+	// 	res.reply('thanks =)');
+	// });
+
 }

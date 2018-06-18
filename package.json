@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "coffeescript": "^2.2.2",
+    "dateformat": "^3.0.3",
     "generator-hubot": "^1.0.0",
     "hubot": "^3.0.1",
     "hubot-conversation": "^1.1.1",
