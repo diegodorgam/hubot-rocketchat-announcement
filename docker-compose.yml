@@ -30,10 +30,10 @@ services:
 
   hubot-notify:
     image: diegodorgam/hubot-rocketchat-notify:latest
-    # links:
-    #   - rocketchat
+    links:
+       - mongo
     environment:
-      ROCKETCHAT_URL: 'https://devops.rocket.chat'
+      ROCKETCHAT_URL: 'https://open.rocket.chat'
       HUBOT_ADAPTER: rocketchat
       HUBOT_NAME: 'Notify'
       HUBOT_DESCRIPTION: 'Creates announcements to all users in Rocket.Chat'
@@ -41,6 +41,8 @@ services:
       RESPOND_TO_DM: 'true'
       RESPOND_TO_LIVECHAT: 'true'
       ROCKETCHAT_USER: notify
-      ROCKETCHAT_PASSWORD: '@notify!2k17'
+      ROCKETCHAT_PASSWORD: 'bot-user-password'
       ROCKETCHAT_AUTH: password
+      ROCKETCHAT_USESSL: 'false'  
       HUBOT_LOG_LEVEL: debug
+      MONGODB_URL: "mongodb://mongo:27017/rocketchat"

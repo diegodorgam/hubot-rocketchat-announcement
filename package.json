@@ -26,7 +26,7 @@
     "hubot-help": "^0.2.2",
     "hubot-iwelt-mongodb-brain": "^1.0.1",
     "hubot-mongodb-brain": "0.1.1",
-    "hubot-rocketchat": "2.0.0-development",
+    "hubot-rocketchat": "git://github.com/RocketChat/hubot-rocketchat.git",
     "mongodb": "^3.0.10",
     "mongodb-redact": "^0.1.0",
     "mongodb-url": "^3.0.1",

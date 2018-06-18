@@ -2,21 +2,21 @@ FROM node:8-alpine
 
 LABEL mantainer "Diego Dorgam <diego.dorgam@rocket.chat>"
 
-ENV HUBOT_ADAPTER=rocketchat                                         \
-  HUBOT_OWNER=RocketChat                                           \
-  HUBOT_NAME=Notify                                          \
-  HUBOT_DESCRIPTION="Send DMs to users in Rocket.Chat" \
-  HUBOT_LOG_LEVEL=debug                                            \
-  ROCKETCHAT_URL=http://rocketchat:3000                            \
-  ROCKETCHAT_USESSL='false'                                         \
-  ROCKETCHAT_ROOM=GENERAL                                          \
+ENV HUBOT_ADAPTER=rocketchat                                      \
+  HUBOT_OWNER=RocketChat                                          \
+  HUBOT_NAME=Notify                                               \
+  HUBOT_DESCRIPTION="Send DMs to users in Rocket.Chat"            \
+  HUBOT_LOG_LEVEL=debug                                           \
+  ROCKETCHAT_URL=http://rocketchat:3000                           \
+  ROCKETCHAT_USESSL='false'                                       \
+  ROCKETCHAT_ROOM=GENERAL                                         \
   ROCKETCHAT_USER=notify                                          \
-  ROCKETCHAT_PASSWORD=botuser-password                                     \
-  ROCKETCHAT_AUTH=password                                         \
-  RESPOND_TO_DM=true                                               \
-  RESPOND_TO_LIVECHAT=true                                         \
-  RESPOND_TO_EDITED=true                                           \
-  LISTEN_ON_ALL_PUBLIC=true                                        \
+  ROCKETCHAT_PASSWORD=botuser-password                            \
+  ROCKETCHAT_AUTH=password                                        \
+  RESPOND_TO_DM=true                                              \
+  RESPOND_TO_LIVECHAT=true                                        \
+  RESPOND_TO_EDITED=true                                          \
+  LISTEN_ON_ALL_PUBLIC=true                                       \
   MONGODB_URL=mongodb://mongo:27017/rocketchat
 
 RUN apk --update add --no-cache git make gcc g++ python python-dev && \
@@ -24,11 +24,16 @@ RUN apk --update add --no-cache git make gcc g++ python python-dev && \
 
 RUN npm install -g yo generator-hubot@1.0.0 node-gyp
 
+ADD scripts/ /home/hubot/bot/scripts/
+
+RUN mkdir -p /home/hubot/.config/configstore                             && \
+  echo "optOut: true" > /home/hubot/.config/configstore/insight-yo.yml && \
+  chown -R hubot:hubot /home/hubot
+
 USER hubot
 
 WORKDIR /home/hubot/bot
 
-ADD scripts/ /home/hubot/bot/scripts/
 
 RUN yo hubot --adapter ${HUBOT_ADAPTER}         \
   --owner ${HUBOT_OWNER}             \
