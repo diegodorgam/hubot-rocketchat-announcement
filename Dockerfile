@@ -40,9 +40,10 @@ RUN yo hubot --adapter ${HUBOT_ADAPTER}         \
   --name ${HUBOT_NAME}               \
   --description ${HUBOT_DESCRIPTION} \
   --defaults --no-insight         && \
-  rm /home/hubot/bot/external-scripts.json
+  rm /home/hubot/bot/external-scripts.json && \
+  rm /home/hubot/bot/scripts/example.js
 
-COPY ["external-scripts.json","package.json", "/home/hubot/bot/"]
+COPY ["external-scripts.json","package.json","index.js", "/home/hubot/bot/"]
 
 RUN npm install --save
 
