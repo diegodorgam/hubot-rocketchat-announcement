@@ -1,14 +1,15 @@
 {
   "name": "hubot-rocketchat-notify",
   "description": "A hubot script to make DM notices to Rocket.Chat users.",
-  "version": "0.1.0-alpha",
+  "version": "0.1.1",
   "author": "Diego Dorgam <diego.dorgam@rocket.chat>",
   "license": "MIT",
   "keywords": [
     "hubot",
-    "hubot-scripts",
+    "hubot-rocketchat",
     "rocketchat",
-    "Rocket.Chat"
+    "Rocket.Chat",
+    "notify"
   ],
   "repository": {
     "type": "git",
